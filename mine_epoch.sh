@@ -11,7 +11,7 @@
 set -e
 
 export ASH_NETWORK=bittensor
-export ASH_RPC=https://lite.chain.opentensor.ai
+export ASH_RPC=https://rpc.blockmachine.io
 export ASH_CONTRACT=0xA0EadE44e10C433E253aADd073cdFEd6af97F43A
 
 LOGFILE="$HOME/ash-v1/logs/burn.log"
@@ -26,12 +26,12 @@ cd "$HOME/ash-v1"
 
 case "$MARKET" in
   local)
-    "$PYTHON" py/ash.py burn --market local --epochs 1 >> "$LOGFILE" 2>&1
+    "$PYTHON" py/ash.py burn --market local --epochs 1 --no-claim --lean >> "$LOGFILE" 2>&1
     ;;
   lium)
     # Prereq: lium init (one-time setup) + lium topup (add TAO balance)
     # Check balance: lium balance
-    "$PYTHON" py/ash.py burn --market lium --gpu "$LIUM_GPU" --epochs 1 >> "$LOGFILE" 2>&1
+    "$PYTHON" py/ash.py burn --market lium --gpu "$LIUM_GPU" --epochs 1 --no-claim >> "$LOGFILE" 2>&1
     ;;
   *)
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: unknown MARKET=$MARKET (valid: local, lium)" >> "$LOGFILE"

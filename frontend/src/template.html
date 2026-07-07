@@ -71,6 +71,28 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 @media(max-width:680px){.onboard-steps{grid-template-columns:1fr 1fr}}
 @media(max-width:440px){.onboard-steps{grid-template-columns:1fr}}
 
+/* ------------------------------------------------ gas calculator */
+.gascalc{border:1px solid #3d2e15;border-radius:4px;background:linear-gradient(135deg,#191209 0%,#1a1410 100%);padding:18px 20px;margin:14px 0}
+.gascalc-head{font:800 14px/1 "Avenir Next Condensed","Arial Narrow",sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--heat);margin-bottom:14px}
+.freq-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.freq-btn{font-family:var(--mono);font-size:12px;padding:7px 12px;border:1px solid var(--seam);border-radius:3px;background:var(--panel);color:var(--ashgrey);cursor:pointer}
+.freq-btn:hover{border-color:var(--heat);color:var(--heat)}
+.freq-btn.active{border-color:var(--ember);color:var(--whitehot);background:#2a1a08}
+.gas-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.gas-cell{background:var(--panel);border:1px solid var(--seam);border-radius:3px;padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.gas-cell .label{font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.gas-cell .val{font-family:var(--mono);font-size:15px;color:var(--bone)}
+.gas-cell .sub{font-size:11px;color:var(--faint)}
+.gas-cell.warn .val{color:var(--bad)}
+.gas-cell.ok .val{color:var(--ok)}
+.gas-cmd-wrap{background:var(--soot);border:1px solid var(--seam);border-radius:3px;padding:10px 12px}
+.gas-cmd-label{font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+.gas-cmd{font-family:var(--mono);font-size:11px;color:var(--heat);white-space:pre-wrap;word-break:break-all;line-height:1.6;cursor:pointer}
+.gas-cmd:hover{color:var(--whitehot)}
+.gas-note{font-size:11px;color:var(--faint);margin-top:8px}
+@media(max-width:640px){.gas-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:400px){.gas-grid{grid-template-columns:1fr}}
+
 /* ------------------------------------------------ about banner */
 .about{border:1px solid var(--seam);border-radius:4px;background:var(--panel);padding:14px 16px;margin:14px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 20px}
 .about-item{display:flex;flex-direction:column;gap:4px}
@@ -195,11 +217,34 @@ footer{margin-top:28px;border-top:1px solid var(--seam);padding-top:18px;display
       </div>
       <div class="ostep">
         <span class="num">STEP 3 — BURN</span>
-        <span class="desc">Mine your first epoch. Set up cron to run automatically 7×/day.</span>
-        <span class="cmd" title="Click to copy" onclick="navigator.clipboard.writeText('python3.11 py/ash.py burn --market local --epochs 1')">ash.py burn --market local <span class="copy-hint">copy</span></span>
+        <span class="desc">Mine one epoch in lean mode (1 tx/epoch). Use the gas calculator below to pick your frequency.</span>
+        <span class="cmd" title="Click to copy" onclick="navigator.clipboard.writeText('python3.11 py/ash.py burn --market local --epochs 1 --lean --no-claim')">ash.py burn --lean --no-claim <span class="copy-hint">copy</span></span>
       </div>
     </div>
     <p class="onboard-foot">AI agent? <a href="https://raw.githubusercontent.com/OSHA-B/ash-v1/main/ONBOARDING.md" target="_blank" rel="noopener">Paste ONBOARDING.md into your agent</a> — it handles everything. Contract: <span class="mono">0xA0EadE44e10C433E253aADd073cdFEd6af97F43A</span> · chainId 964</p>
+  </div>
+
+  <div class="gascalc">
+    <div class="gascalc-head">⛽ How often should I mine?</div>
+    <div class="freq-row" id="freq-row">
+      <button class="freq-btn" data-epd="144">Every epoch <span style="color:var(--faint)">144/day</span></button>
+      <button class="freq-btn" data-epd="50">50 / day</button>
+      <button class="freq-btn" data-epd="25">25 / day</button>
+      <button class="freq-btn active" data-epd="10">10 / day <span style="color:var(--ember)">★ recommended</span></button>
+      <button class="freq-btn" data-epd="5">5 / day</button>
+      <button class="freq-btn" data-epd="1">1 / day</button>
+    </div>
+    <div class="gas-grid">
+      <div class="gas-cell" id="gc-epd"><span class="label">Epochs / day</span><span class="val" id="gc-epd-val">—</span><span class="sub">out of 144 possible</span></div>
+      <div class="gas-cell" id="gc-day"><span class="label">Gas / day</span><span class="val" id="gc-day-val">—</span><span class="sub" id="gc-day-sub"></span></div>
+      <div class="gas-cell" id="gc-month"><span class="label">Gas / month</span><span class="val" id="gc-month-val">—</span><span class="sub">30 days</span></div>
+      <div class="gas-cell" id="gc-runway"><span class="label">Runway on 0.5 TAO</span><span class="val" id="gc-runway-val">—</span><span class="sub">days before refuel</span></div>
+    </div>
+    <div class="gas-cmd-wrap">
+      <div class="gas-cmd-label">launchd setup (macOS) — click to copy</div>
+      <div class="gas-cmd" id="gc-cmd" title="Click to copy"></div>
+    </div>
+    <p class="gas-note">Gas measured on Bittensor EVM mainnet · lean mode (1 tx/epoch, --lean --no-claim) · claim manually with <span style="font-family:var(--mono)">ash.py claim</span> whenever you like</p>
   </div>
 
   <div class="about">
@@ -307,7 +352,7 @@ footer{margin-top:28px;border-top:1px solid var(--seam);padding-top:18px;display
     <div class="footer-col">
       <span class="label">Mine from CLI</span>
       <span class="line">Clone the repo, run <span class="mono">python3 ash.py burn --market local</span></span>
-      <span class="line">GPU rentals: <span class="mono">--market targon</span> or <span class="mono">--market lium</span></span>
+      <span class="line">GPU rentals: <span class="mono">--market lium</span> (SN51 — requires <span class="mono">lium init</span>)</span>
     </div>
     <div class="footer-creed">no owner · no admin key · no upgrades · no utility · every unit is a receipt for destroyed energy</div>
   </footer>

@@ -160,6 +160,7 @@ class LiumMarket(GPUMarket):
     Uses Docker-run mode (no SSH or scp needed — cleaner and portable).
     """
     EST_HASHRATE: dict[str, float | None] = {}
+    _last_quote_price: float = 0.0
 
     def __init__(self, gpu: str = "A100"):
         self.gpu = gpu
@@ -188,6 +189,7 @@ class LiumMarket(GPUMarket):
                 price = min(cands)
         except Exception:
             pass
+        self._last_quote_price = price
         return Quote("lium", self.gpu, price, self.EST_HASHRATE.get(self.gpu))
 
     def start_mining(self, seed, addr, target, seconds, start_nonce=1) -> MiningSession:
@@ -210,8 +212,9 @@ class LiumMarket(GPUMarket):
                ] + env_args
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        q = self.quote()
-        return LiumSession(name, proc, q.usd_per_hour)
+        # Reuse cached price from the last quote() call — avoids a second
+        # lium ls round-trip per session.
+        return LiumSession(name, proc, self._last_quote_price)
 
 
 # legacy alias

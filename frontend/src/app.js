@@ -349,6 +349,53 @@ async function claimAll() {
   } catch (err) { log(`claim: ${err.message}`, "bad"); }
 }
 
+// ------------------------------------------------------------ gas calculator
+const GAS_PER_EPOCH_TAO = 0.000633; // measured on mainnet: 1 submit tx, lean mode
+const LAUNCHD_INTERVAL = { 144: 600, 50: 1728, 25: 3456, 10: 8640, 5: 17280, 1: 86400 };
+
+function updateGasCalc(epd) {
+  const perDay  = epd * GAS_PER_EPOCH_TAO;
+  const perMonth = perDay * 30;
+  const runway  = 0.5 / perDay;
+
+  $('gc-epd-val').textContent   = epd.toLocaleString();
+  $('gc-day-val').textContent   = perDay.toFixed(4) + ' TAO';
+  $('gc-month-val').textContent = perMonth.toFixed(3) + ' TAO';
+  $('gc-runway-val').textContent = runway >= 999 ? '999+ days' : Math.round(runway) + ' days';
+
+  const dayCell = $('gc-day');
+  dayCell.className = 'gas-cell' + (perDay > 0.05 ? ' warn' : perDay < 0.01 ? ' ok' : '');
+  const runCell = $('gc-runway');
+  runCell.className = 'gas-cell' + (runway < 30 ? ' warn' : runway >= 100 ? ' ok' : '');
+
+  $('gc-day-sub').textContent = '~' + (perDay * 218).toFixed(2) + ' USD/day at $218/TAO';
+
+  const interval = LAUNCHD_INTERVAL[epd] || Math.round(86400 / epd);
+  const plist = `<key>StartInterval</key>\n<integer>${interval}</integer>\n<key>ProgramArguments</key>\n<array>\n  <string>/bin/bash</string>\n  <string>-c</string>\n  <string>exec "$HOME/ash-v1/mine_epoch.sh"</string>\n</array>`;
+  const cmdEl = $('gc-cmd');
+  cmdEl.textContent = plist;
+  cmdEl.onclick = () => {
+    navigator.clipboard.writeText(plist);
+    cmdEl.style.color = 'var(--ok)';
+    setTimeout(() => { cmdEl.style.color = ''; }, 1200);
+  };
+}
+
+function initGasCalc() {
+  const row = $('freq-row');
+  if (!row) return;
+  let active = 10;
+  updateGasCalc(active);
+  row.querySelectorAll('.freq-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      row.querySelectorAll('.freq-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      active = parseInt(btn.dataset.epd, 10);
+      updateGasCalc(active);
+    });
+  });
+}
+
 // ------------------------------------------------------------ boot
 function boot() {
   readConfig(); applyConfigUI();
@@ -393,6 +440,7 @@ function boot() {
   } else {
     log("ASH furnace live on Bittensor EVM — connect a wallet to mine");
   }
+  initGasCalc();
   poll();
   setInterval(poll, 4000);
   setInterval(tickGauge, 250);

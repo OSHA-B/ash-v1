@@ -41,7 +41,7 @@ NETS = {
 def cfg():
     home = Path(os.environ.get("ASH_HOME", str(Path.home() / ".ash")))
     home.mkdir(parents=True, exist_ok=True)
-    net = os.environ.get("ASH_NETWORK", "bittensor-test")
+    net = os.environ.get("ASH_NETWORK", "bittensor")
     preset = NETS.get(net, NETS["bittensor-test"])
     rpc = os.environ.get("ASH_RPC", preset["rpc"])
     contract = os.environ.get("ASH_CONTRACT", "").strip()
@@ -297,7 +297,7 @@ def cmd_burn(a):
     else:
         raise SystemExit(f"unknown market {a.market}")
     chain = live_loop.LiveChain(rpc, contract, pk)
-    live_loop.run(chain, market, epochs=a.epochs)
+    live_loop.run(chain, market, epochs=a.epochs, auto_claim=not a.no_claim, lean=a.lean)
 
 def cmd_claim(a):
     home, net, rpc, contract, cid = cfg()
@@ -315,7 +315,8 @@ def cmd_claim(a):
     tx = c.functions.claimMany(claimable).build_transaction({
         "from": addr, "nonce": w3.eth.get_transaction_count(addr),
         "chainId": cid, "gas": 200000 + 60000 * len(claimable),
-        "gasPrice": w3.eth.gas_price})
+        "maxFeePerGas": w3.to_wei("20", "gwei"),
+        "maxPriorityFeePerGas": w3.to_wei("1", "gwei")})
     signed = acct.sign_transaction(tx)
     h = w3.eth.send_raw_transaction(signed.raw_transaction)
     w3.eth.wait_for_transaction_receipt(h)
@@ -360,6 +361,10 @@ def main():
     b.add_argument("--market", default="local", choices=["local", "lium"])
     b.add_argument("--epochs", type=int, default=None)
     b.add_argument("--gpu", default="A100"); b.add_argument("--resource", default="h200-small")
+    b.add_argument("--no-claim", action="store_true", default=False,
+                   help="skip auto-claim after each epoch; use 'ash.py claim' manually")
+    b.add_argument("--lean", action="store_true", default=False,
+                   help="submit only 1 share per epoch (1 tx) — saves ~23x gas when solo mining")
     cl = sub.add_parser("claim"); cl.add_argument("--lookback", type=int, default=64)
     wd = sub.add_parser("withdraw")
     wd.add_argument("--to", required=True); wd.add_argument("--amount", required=True)

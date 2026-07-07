@@ -32,7 +32,7 @@ CLI = str(HERE / "ash.py")
 
 TOOLS = [
     {"name": "ash_provision",
-     "description": "Create all wallets in one shot: a Bittensor coldkey (receives TAO for compute + gas), an ICP identity + account (receives ICP for hosting cycles), and the EVM mining key. Run this first. Requires btcli and dfx installed.",
+     "description": "Create all wallets in one shot: a Bittensor coldkey (receives TAO for compute + gas), an ICP identity + account (receives ICP for hosting cycles), and the EVM mining key. Run this first. Requires btcli installed.",
      "inputSchema": {"type": "object", "properties": {}}},
     {"name": "ash_wallets",
      "description": "Print the two fundable addresses (Bittensor SS58 + ICP account) in a clean block. Returns 'fundable_message' — send that to the user as its own separate message so they can fund both wallets in two clicks.",

@@ -169,7 +169,7 @@ def _try_claim(chain, e) -> bool:
         raise
 
 
-def run(chain, market, epochs: int | None, submit_margin=0.9):
+def run(chain, market, epochs: int | None, submit_margin=0.9, auto_claim=True, lean=False):
     mined: set[int] = set()
     claimed: set[int] = set()   # track locally to avoid RPC-lag double-claims
     done = 0
@@ -201,10 +201,13 @@ def run(chain, market, epochs: int | None, submit_margin=0.9):
                     if status == "ok":
                         submitted += len(batch)
                         mined.add(e)
+                        if lean:             # 1 share submitted — we're done
+                            buf = []
+                            break
                     else:                     # stale flip race / epoch full
                         buf = []
                         break
-                if status != "ok":
+                if status != "ok" or (lean and submitted > 0):
                     break
                 sleep_for = POLL_NEAR if near_flip else min(POLL_IDLE, max(secs_left - FLUSH_WINDOW - 5, POLL_NEAR))
                 time.sleep(sleep_for)
@@ -212,23 +215,27 @@ def run(chain, market, epochs: int | None, submit_margin=0.9):
             session.stop()
         print(f"[epoch {e}] submitted {submitted} shares")
 
+        if auto_claim:
+            for ce in chain.claimable(mined):
+                if ce in claimed:
+                    continue
+                if _try_claim(chain, ce):
+                    claimed.add(ce)
+                    time.sleep(CLAIM_SETTLE_SECS)  # let RPC state propagate
+                    print(f"[claim  {ce}] balance now {ash(chain.balance())}")
+        done += 1
+
+    if auto_claim:
+        # final sweep — pick up anything missed during the run
         for ce in chain.claimable(mined):
             if ce in claimed:
                 continue
             if _try_claim(chain, ce):
                 claimed.add(ce)
-                time.sleep(CLAIM_SETTLE_SECS)  # let RPC state propagate
-                print(f"[claim  {ce}] balance now {ash(chain.balance())}")
-        done += 1
-
-    # final sweep — pick up anything missed during the run
-    for ce in chain.claimable(mined):
-        if ce in claimed:
-            continue
-        if _try_claim(chain, ce):
-            claimed.add(ce)
-    if claimed:
-        time.sleep(CLAIM_SETTLE_SECS)
+        if claimed:
+            time.sleep(CLAIM_SETTLE_SECS)
+    else:
+        print(f"[no-claim mode] {len(mined)} epoch(s) mined — run 'ash.py claim' to sweep")
     print(f"final balance: {ash(chain.balance())}")
 
 
