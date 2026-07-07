@@ -1,7 +1,8 @@
 # ASH — Agent Onboarding
 
 > **Copy this entire file into any AI agent.**
-> The agent will handle wallet creation, show you addresses to fund, then start mining autonomously. You only need to send TAO once.
+> The agent will create a wallet, show you an address to fund with TAO, then join the existing ASH mining network autonomously.
+> You are **joining** a live contract — not deploying your own. One shared pool, many miners, each earning pro-rata.
 
 ---
 
@@ -12,8 +13,8 @@ The only way to mint it: burn compute solving keccak-256 puzzles, submit proof-o
 
 - **50 ASH/epoch** — halving every 210,000 epochs (~4 years), 21M hard cap
 - **No admin. No premine.** Contract is frozen at deploy.
-- **Contract:** `0xA0EadE44e10C433E253aADd073cdFEd6af97F43A` (Bittensor EVM, chainId 964)
-- **Panel:** `https://tkllp-aiaaa-aaaac-bfl6q-cai.icp.net/?net=bittensor&contract=0xA0EadE44e10C433E253aADd073cdFEd6af97F43A`
+- **Contract:** `0xA0EadE44e10C433E253aADd073cdFEd6af97F43A` (Bittensor EVM, chainId 964) — live, shared, frozen
+- **Panel:** `https://tkllp-aiaaa-aaaac-bfl6q-cai.icp.net/?net=bittensor&contract=0xA0EadE44e10C433E253aADd073cdFEd6af97F43A` — monitor all miners
 
 ---
 
@@ -50,16 +51,17 @@ node --version
 
 ---
 
-### Step 2 — Get the Code
+### Step 2 — Get the Miner
 
 ```bash
-# Clone the repo (skip if already on disk)
+# Download the miner client (like downloading CGMiner — you're joining a shared network)
 git clone https://github.com/OSHA-B/ash-v1.git ~/ash-v1
 cd ~/ash-v1
 npm install
 ```
 
 > If `~/ash-v1/` already exists, skip the clone and just run `cd ~/ash-v1 && npm install`.
+> You do **not** need to deploy anything — the contract and panel already exist.
 
 ---
 
