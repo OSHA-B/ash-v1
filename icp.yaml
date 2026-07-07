@@ -1,0 +1,8 @@
+canisters:
+  - name: ash-panel
+    recipe:
+      type: "@dfinity/asset-canister@v2.2.1"
+      configuration:
+        dir: frontend/dist
+        build:
+          - sh -c 'cd frontend && node build.js'

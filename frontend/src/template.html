@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASH — proof of burned compute</title>
+<meta name="description" content="ASH is an ownerless ERC-20 token on Bittensor EVM. The only way to mint it is to burn compute: solve keccak puzzles, submit proof-of-work shares, and claim your share of each epoch pool. No admin. No premine. Code is law.">
+<style>
+:root{
+  --soot:#16130f; --panel:#1d1915; --panel2:#211c16; --seam:#33291e;
+  --bone:#ece5d8; --ashgrey:#9d948a; --faint:#6f675e;
+  --ember:#ff7a1a; --heat:#ffb347; --whitehot:#fff3e0; --cold:#7d8fa0;
+  --bad:#e5484d; --ok:#5cb85c;
+  --label:600 11px/1 "Avenir Next Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--soot)}
+body{
+  color:var(--bone);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:
+    radial-gradient(1200px 500px at 50% -200px, #23180d 0%, transparent 60%),
+    var(--soot);
+  min-height:100vh;
+}
+.wrap{max-width:1060px;margin:0 auto;padding:20px 18px 56px}
+.eyebrow{font:var(--label);letter-spacing:.18em;text-transform:uppercase;color:var(--ashgrey)}
+.mono{font-family:var(--mono)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:6px;vertical-align:1px}
+.dot.ok{background:var(--heat);box-shadow:0 0 6px var(--ember)}
+.dot.bad{background:var(--bad)}
+
+/* ------------------------------------------------ header */
+header{display:flex;align-items:center;gap:14px;padding:6px 0 18px;border-bottom:1px solid var(--seam);flex-wrap:wrap}
+.mark{display:flex;align-items:baseline;gap:10px}
+.mark b{font:800 26px/1 "Avenir Next Condensed","Arial Narrow",sans-serif;letter-spacing:.22em;color:var(--whitehot)}
+.mark b::after{content:"▮";color:var(--ember);margin-left:2px;animation:emberpulse 2.4s ease-in-out infinite}
+@keyframes emberpulse{0%,100%{opacity:.55}50%{opacity:1}}
+.mark span{font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+header .grow{flex:1}
+.pill{font-family:var(--mono);font-size:12px;color:var(--ashgrey);border:1px solid var(--seam);border-radius:3px;padding:6px 10px;background:var(--panel)}
+.pill.live{border-color:#3d2e15;color:var(--heat)}
+button{
+  font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--bone);background:var(--panel2);border:1px solid var(--seam);
+  border-radius:3px;padding:9px 14px;cursor:pointer
+}
+button:hover{border-color:var(--ashgrey)}
+button:disabled{opacity:.4;cursor:default}
+button.hotbtn{background:linear-gradient(180deg,#5a2c0b,#3d1e08);border-color:#7a3d10;color:var(--whitehot)}
+button.hotbtn:hover{border-color:var(--ember)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--heat);outline-offset:1px}
+
+/* ------------------------------------------------ about banner */
+.about{border:1px solid var(--seam);border-radius:4px;background:var(--panel);padding:14px 16px;margin:14px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 20px}
+.about-item{display:flex;flex-direction:column;gap:4px}
+.about-item .label{font:var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.about-item .val{font-size:13px;color:var(--ashgrey);line-height:1.45}
+.about-item .val b{color:var(--bone)}
+@media(max-width:680px){.about{grid-template-columns:1fr 1fr}}
+@media(max-width:440px){.about{grid-template-columns:1fr}}
+
+/* ------------------------------------------------ config (collapsible, closed by default) */
+details#config{border:1px solid var(--seam);border-radius:4px;background:var(--panel);margin:14px 0}
+details#config summary{cursor:pointer;padding:10px 14px;font:var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--ashgrey)}
+.cfg{display:grid;grid-template-columns:170px 1fr auto;gap:10px;padding:4px 14px 14px}
+.cfg label{display:flex;flex-direction:column;gap:6px;font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.cfg select,.cfg input{
+  font-family:var(--mono);font-size:13px;color:var(--bone);
+  background:var(--soot);border:1px solid var(--seam);border-radius:3px;padding:9px 10px}
+#hint{margin:0 14px 14px;color:var(--heat);font-size:13px}
+
+/* ------------------------------------------------ hero: gauge + instruments */
+.hero{display:grid;grid-template-columns:280px 1fr;gap:16px;margin:14px 0}
+.gaugebox{border:1px solid var(--seam);border-radius:4px;background:var(--panel);display:flex;align-items:center;justify-content:center;padding:26px}
+#gauge{
+  width:216px;height:216px;border-radius:50%;position:relative;
+  background:conic-gradient(#241e17 0deg,#241e17 360deg);
+  transition:box-shadow .4s;
+}
+#gauge::before{
+  content:"";position:absolute;inset:-9px;border-radius:50%;
+  background:repeating-conic-gradient(var(--seam) 0deg 1deg,transparent 1deg 30deg);
+  -webkit-mask:radial-gradient(farthest-side,transparent 92%,#000 93%);
+  mask:radial-gradient(farthest-side,transparent 92%,#000 93%);
+}
+#gauge::after{
+  content:"";position:absolute;inset:12px;border-radius:50%;
+  background:radial-gradient(circle at 38% 32%, #262019, var(--soot) 70%);
+  border:1px solid var(--seam);
+}
+#gauge.flash{box-shadow:0 0 44px 6px rgba(255,122,26,.45)}
+@media (prefers-reduced-motion: reduce){
+  .mark b::after{animation:none}
+  #gauge{transition:none}
+}
+.gaugelabel{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+#epoch-num{font-family:var(--mono);font-size:46px;font-weight:700;color:var(--whitehot);letter-spacing:-.02em}
+#countdown{font-family:var(--mono);font-size:14px;color:var(--heat)}
+
+.instruments{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.inst{border:1px solid var(--seam);border-radius:4px;background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.inst .big{font-family:var(--mono);font-size:24px;color:var(--bone)}
+.inst .sub{font-size:12px;color:var(--faint)}
+.bar{height:5px;background:#141110;border:1px solid var(--seam);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ember),var(--heat));transition:width .6s}
+
+/* ------------------------------------------------ panels */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+section.panel{border:1px solid var(--seam);border-radius:4px;background:var(--panel)}
+section.panel h2{
+  font:var(--label);letter-spacing:.2em;text-transform:uppercase;color:var(--ashgrey);
+  padding:11px 16px;border-bottom:1px solid var(--seam);display:flex;justify-content:space-between;align-items:center}
+.panelbody{padding:16px;display:flex;flex-direction:column;gap:12px}
+.statline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px;color:var(--ashgrey)}
+.statline b{color:var(--bone);font-weight:600}
+.mrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.check{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ashgrey);user-select:none}
+#miner-note{font-size:11px;color:var(--faint)}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:13px;padding:8px 10px;border:1px solid var(--seam);border-radius:3px;background:var(--panel2);color:var(--ashgrey)}
+.row .mono{color:var(--heat);text-align:right}
+#claims-empty{font-size:13px;color:var(--faint)}
+
+/* ------------------------------------------------ log */
+#log{border:1px solid var(--seam);border-radius:4px;background:#121009;margin-top:16px;padding:10px 14px;max-height:180px;overflow-y:auto;font-family:var(--mono);font-size:12px;color:var(--ashgrey)}
+.logline{padding:2px 0;border-bottom:1px dotted #221c14}
+.logline.hot{color:var(--heat)}
+.logline.bad{color:var(--bad)}
+
+/* ------------------------------------------------ footer */
+footer{margin-top:28px;border-top:1px solid var(--seam);padding-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.footer-col{display:flex;flex-direction:column;gap:8px}
+.footer-col .label{font:var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+.footer-col .line{font-size:12px;color:var(--ashgrey)}
+.footer-col .line a{color:var(--ashgrey);text-decoration:none}
+.footer-col .line a:hover{color:var(--heat)}
+.footer-col .line .mono{font-size:11px}
+.footer-creed{font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-size:10px;margin-top:10px;padding-top:12px;border-top:1px solid var(--seam);text-align:center;grid-column:1/-1}
+@media(max-width:640px){footer{grid-template-columns:1fr}}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr}
+  .panels{grid-template-columns:1fr}
+  .cfg{grid-template-columns:1fr}
+  .instruments{grid-template-columns:1fr 1fr}
+}
+@media (max-width:520px){ .instruments{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="mark"><b>ASH</b><span>proof of burned compute</span></div>
+    <div class="grow"></div>
+    <span class="pill live"><span id="rpc-dot" class="dot"></span>Bittensor EVM · <span id="contract-pill">connecting…</span></span>
+    <button id="connect-btn">Connect wallet</button>
+  </header>
+
+  <div class="about">
+    <div class="about-item">
+      <span class="label">What is ASH?</span>
+      <span class="val"><b>Proof-of-burned-compute token</b> on Bittensor EVM. The only way to mint it is to solve keccak-256 puzzles and submit proof-of-work shares.</span>
+    </div>
+    <div class="about-item">
+      <span class="label">How it works</span>
+      <span class="val">Each 10-minute epoch has a share pool. Miners submit nonces, the contract verifies on-chain. At flip: claim your pro-rata share of <b>50 ASH</b>.</span>
+    </div>
+    <div class="about-item">
+      <span class="label">Supply</span>
+      <span class="val"><b>21 million cap.</b> Halvings every 210 000 epochs (~4 years). No admin key. No upgrades. Frozen at deploy — code is law.</span>
+    </div>
+  </div>
+
+  <details id="config">
+    <summary>Advanced — network · rpc · contract</summary>
+    <div class="cfg">
+      <label>Network
+        <select id="net-select">
+          <option value="bittensor">Bittensor EVM (964)</option>
+          <option value="bittensor-test">Bittensor testnet (945)</option>
+          <option value="base">Base (8453)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+      <label>RPC URL <input id="rpc-input" placeholder="https://…" spellcheck="false"></label>
+      <label>Contract <input id="contract-input" placeholder="0x…" spellcheck="false"></label>
+    </div>
+    <div class="cfg" style="grid-template-columns:auto 1fr">
+      <button id="save-config" class="hotbtn">Apply</button>
+      <span></span>
+    </div>
+    <p id="hint" hidden>No contract address set. Paste the deployed ASH contract above.</p>
+  </details>
+
+  <div class="hero">
+    <div class="gaugebox">
+      <div id="gauge" role="img" aria-label="Epoch progress gauge">
+        <div class="gaugelabel">
+          <span class="eyebrow">Epoch</span>
+          <span id="epoch-num">—</span>
+          <span id="countdown"></span>
+        </div>
+      </div>
+    </div>
+    <div class="instruments">
+      <div class="inst"><span class="eyebrow">Pool this epoch</span>
+        <span class="big"><span id="pool-val">—</span> ASH</span>
+        <span class="sub">era <span id="era-val">—</span> · halving in <span id="halving-val">—</span> epochs</span></div>
+      <div class="inst"><span class="eyebrow">Difficulty</span>
+        <span class="big" id="target-val">—</span>
+        <span class="sub" id="prob-val"></span></div>
+      <div class="inst"><span class="eyebrow">Shares this epoch</span>
+        <span class="big" id="shares-val">—</span>
+        <div class="bar"><i id="shares-bar"></i></div>
+        <span class="sub" id="cap-note"></span></div>
+      <div class="inst"><span class="eyebrow">Total supply</span>
+        <span class="big mono" style="font-size:17px" id="supply-val">—</span>
+        <div class="bar"><i id="supply-bar"></i></div>
+        <span class="sub">21 000 000 hard cap · unfilled epochs mint nothing</span></div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <section class="panel">
+      <h2>Burn <span class="mono" id="hashrate">idle</span></h2>
+      <div class="panelbody">
+        <div class="mrow">
+          <button id="mine-btn" class="hotbtn">Start burning</button>
+          <button id="submit-btn" disabled>Submit 0 shares</button>
+          <label class="check"><input type="checkbox" id="autosub" checked> auto-submit</label>
+        </div>
+        <div class="statline"><span>shares in buffer</span><b id="found-count">0</b></div>
+        <div class="statline"><span></span><b id="est-share" style="color:var(--heat)"></b></div>
+        <p id="miner-note"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Ledger</h2>
+      <div class="panelbody">
+        <div class="statline"><span>balance</span><b id="bal-val">—</b></div>
+        <div class="statline"><span>my shares, this epoch</span><b id="myshares-val">—</b></div>
+        <div class="mrow">
+          <button id="scan-btn">Scan last 64 epochs</button>
+          <button id="claim-all" class="hotbtn" hidden>Claim</button>
+        </div>
+        <p id="claims-empty">Mine an epoch, let it end, then scan.</p>
+        <div id="claims-body"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="log" aria-live="polite"></div>
+
+  <footer>
+    <div class="footer-col">
+      <span class="label">Contract</span>
+      <span class="line mono">0xA0EadE44e10C433E253aADd073cdFEd6af97F43A</span>
+      <span class="line">Bittensor EVM · chainId 964 · frozen at deploy</span>
+    </div>
+    <div class="footer-col">
+      <span class="label">Mine from CLI</span>
+      <span class="line">Clone the repo, run <span class="mono">python3 ash.py burn --market local</span></span>
+      <span class="line">GPU rentals: <span class="mono">--market targon</span> or <span class="mono">--market lium</span></span>
+    </div>
+    <div class="footer-creed">no owner · no admin key · no upgrades · no utility · every unit is a receipt for destroyed energy</div>
+  </footer>
+</div>
+
+<script>/*__ASHLIB__*/</script>
+<script>const WORKER_SRC = /*__WORKER_SRC__*/;</script>
+<script>/*__APP__*/</script>
+</body>
+</html>

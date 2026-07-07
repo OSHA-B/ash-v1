@@ -1,0 +1,16 @@
+// Asset-canister headers for the ASH panel (single-page, self-contained).
+// connect-src https: — the RPC endpoint is user-configurable.
+// worker-src blob:  — the in-page miner runs from a Blob worker.
+[
+  {
+    "match": "**/*",
+    "headers": {
+      "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https: http://localhost:* http://127.0.0.1:*; worker-src blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; upgrade-insecure-requests;",
+      "X-Frame-Options": "DENY",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+      "Permissions-Policy": "geolocation=(), camera=(), microphone=()"
+    },
+    "allow_raw_access": true
+  }
+]

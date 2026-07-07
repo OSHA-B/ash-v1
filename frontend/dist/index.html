@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASH — proof of burned compute</title>
+<meta name="description" content="ASH is an ownerless ERC-20 token on Bittensor EVM. The only way to mint it is to burn compute: solve keccak puzzles, submit proof-of-work shares, and claim your share of each epoch pool. No admin. No premine. Code is law.">
+<style>
+:root{
+  --soot:#16130f; --panel:#1d1915; --panel2:#211c16; --seam:#33291e;
+  --bone:#ece5d8; --ashgrey:#9d948a; --faint:#6f675e;
+  --ember:#ff7a1a; --heat:#ffb347; --whitehot:#fff3e0; --cold:#7d8fa0;
+  --bad:#e5484d; --ok:#5cb85c;
+  --label:600 11px/1 "Avenir Next Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--soot)}
+body{
+  color:var(--bone);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:
+    radial-gradient(1200px 500px at 50% -200px, #23180d 0%, transparent 60%),
+    var(--soot);
+  min-height:100vh;
+}
+.wrap{max-width:1060px;margin:0 auto;padding:20px 18px 56px}
+.eyebrow{font:var(--label);letter-spacing:.18em;text-transform:uppercase;color:var(--ashgrey)}
+.mono{font-family:var(--mono)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint);margin-right:6px;vertical-align:1px}
+.dot.ok{background:var(--heat);box-shadow:0 0 6px var(--ember)}
+.dot.bad{background:var(--bad)}
+
+/* ------------------------------------------------ header */
+header{display:flex;align-items:center;gap:14px;padding:6px 0 18px;border-bottom:1px solid var(--seam);flex-wrap:wrap}
+.mark{display:flex;align-items:baseline;gap:10px}
+.mark b{font:800 26px/1 "Avenir Next Condensed","Arial Narrow",sans-serif;letter-spacing:.22em;color:var(--whitehot)}
+.mark b::after{content:"▮";color:var(--ember);margin-left:2px;animation:emberpulse 2.4s ease-in-out infinite}
+@keyframes emberpulse{0%,100%{opacity:.55}50%{opacity:1}}
+.mark span{font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+header .grow{flex:1}
+.pill{font-family:var(--mono);font-size:12px;color:var(--ashgrey);border:1px solid var(--seam);border-radius:3px;padding:6px 10px;background:var(--panel)}
+.pill.live{border-color:#3d2e15;color:var(--heat)}
+button{
+  font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--bone);background:var(--panel2);border:1px solid var(--seam);
+  border-radius:3px;padding:9px 14px;cursor:pointer
+}
+button:hover{border-color:var(--ashgrey)}
+button:disabled{opacity:.4;cursor:default}
+button.hotbtn{background:linear-gradient(180deg,#5a2c0b,#3d1e08);border-color:#7a3d10;color:var(--whitehot)}
+button.hotbtn:hover{border-color:var(--ember)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--heat);outline-offset:1px}
+
+/* ------------------------------------------------ about banner */
+.about{border:1px solid var(--seam);border-radius:4px;background:var(--panel);padding:14px 16px;margin:14px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 20px}
+.about-item{display:flex;flex-direction:column;gap:4px}
+.about-item .label{font:var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+.about-item .val{font-size:13px;color:var(--ashgrey);line-height:1.45}
+.about-item .val b{color:var(--bone)}
+@media(max-width:680px){.about{grid-template-columns:1fr 1fr}}
+@media(max-width:440px){.about{grid-template-columns:1fr}}
+
+/* ------------------------------------------------ config (collapsible, closed by default) */
+details#config{border:1px solid var(--seam);border-radius:4px;background:var(--panel);margin:14px 0}
+details#config summary{cursor:pointer;padding:10px 14px;font:var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--ashgrey)}
+.cfg{display:grid;grid-template-columns:170px 1fr auto;gap:10px;padding:4px 14px 14px}
+.cfg label{display:flex;flex-direction:column;gap:6px;font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.cfg select,.cfg input{
+  font-family:var(--mono);font-size:13px;color:var(--bone);
+  background:var(--soot);border:1px solid var(--seam);border-radius:3px;padding:9px 10px}
+#hint{margin:0 14px 14px;color:var(--heat);font-size:13px}
+
+/* ------------------------------------------------ hero: gauge + instruments */
+.hero{display:grid;grid-template-columns:280px 1fr;gap:16px;margin:14px 0}
+.gaugebox{border:1px solid var(--seam);border-radius:4px;background:var(--panel);display:flex;align-items:center;justify-content:center;padding:26px}
+#gauge{
+  width:216px;height:216px;border-radius:50%;position:relative;
+  background:conic-gradient(#241e17 0deg,#241e17 360deg);
+  transition:box-shadow .4s;
+}
+#gauge::before{
+  content:"";position:absolute;inset:-9px;border-radius:50%;
+  background:repeating-conic-gradient(var(--seam) 0deg 1deg,transparent 1deg 30deg);
+  -webkit-mask:radial-gradient(farthest-side,transparent 92%,#000 93%);
+  mask:radial-gradient(farthest-side,transparent 92%,#000 93%);
+}
+#gauge::after{
+  content:"";position:absolute;inset:12px;border-radius:50%;
+  background:radial-gradient(circle at 38% 32%, #262019, var(--soot) 70%);
+  border:1px solid var(--seam);
+}
+#gauge.flash{box-shadow:0 0 44px 6px rgba(255,122,26,.45)}
+@media (prefers-reduced-motion: reduce){
+  .mark b::after{animation:none}
+  #gauge{transition:none}
+}
+.gaugelabel{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+#epoch-num{font-family:var(--mono);font-size:46px;font-weight:700;color:var(--whitehot);letter-spacing:-.02em}
+#countdown{font-family:var(--mono);font-size:14px;color:var(--heat)}
+
+.instruments{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.inst{border:1px solid var(--seam);border-radius:4px;background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.inst .big{font-family:var(--mono);font-size:24px;color:var(--bone)}
+.inst .sub{font-size:12px;color:var(--faint)}
+.bar{height:5px;background:#141110;border:1px solid var(--seam);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ember),var(--heat));transition:width .6s}
+
+/* ------------------------------------------------ panels */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+section.panel{border:1px solid var(--seam);border-radius:4px;background:var(--panel)}
+section.panel h2{
+  font:var(--label);letter-spacing:.2em;text-transform:uppercase;color:var(--ashgrey);
+  padding:11px 16px;border-bottom:1px solid var(--seam);display:flex;justify-content:space-between;align-items:center}
+.panelbody{padding:16px;display:flex;flex-direction:column;gap:12px}
+.statline{display:flex;justify-content:space-between;font-family:var(--mono);font-size:13px;color:var(--ashgrey)}
+.statline b{color:var(--bone);font-weight:600}
+.mrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.check{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ashgrey);user-select:none}
+#miner-note{font-size:11px;color:var(--faint)}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:13px;padding:8px 10px;border:1px solid var(--seam);border-radius:3px;background:var(--panel2);color:var(--ashgrey)}
+.row .mono{color:var(--heat);text-align:right}
+#claims-empty{font-size:13px;color:var(--faint)}
+
+/* ------------------------------------------------ log */
+#log{border:1px solid var(--seam);border-radius:4px;background:#121009;margin-top:16px;padding:10px 14px;max-height:180px;overflow-y:auto;font-family:var(--mono);font-size:12px;color:var(--ashgrey)}
+.logline{padding:2px 0;border-bottom:1px dotted #221c14}
+.logline.hot{color:var(--heat)}
+.logline.bad{color:var(--bad)}
+
+/* ------------------------------------------------ footer */
+footer{margin-top:28px;border-top:1px solid var(--seam);padding-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.footer-col{display:flex;flex-direction:column;gap:8px}
+.footer-col .label{font:var(--label);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:2px}
+.footer-col .line{font-size:12px;color:var(--ashgrey)}
+.footer-col .line a{color:var(--ashgrey);text-decoration:none}
+.footer-col .line a:hover{color:var(--heat)}
+.footer-col .line .mono{font-size:11px}
+.footer-creed{font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-size:10px;margin-top:10px;padding-top:12px;border-top:1px solid var(--seam);text-align:center;grid-column:1/-1}
+@media(max-width:640px){footer{grid-template-columns:1fr}}
+
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr}
+  .panels{grid-template-columns:1fr}
+  .cfg{grid-template-columns:1fr}
+  .instruments{grid-template-columns:1fr 1fr}
+}
+@media (max-width:520px){ .instruments{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="mark"><b>ASH</b><span>proof of burned compute</span></div>
+    <div class="grow"></div>
+    <span class="pill live"><span id="rpc-dot" class="dot"></span>Bittensor EVM · <span id="contract-pill">connecting…</span></span>
+    <button id="connect-btn">Connect wallet</button>
+  </header>
+
+  <div class="about">
+    <div class="about-item">
+      <span class="label">What is ASH?</span>
+      <span class="val"><b>Proof-of-burned-compute token</b> on Bittensor EVM. The only way to mint it is to solve keccak-256 puzzles and submit proof-of-work shares.</span>
+    </div>
+    <div class="about-item">
+      <span class="label">How it works</span>
+      <span class="val">Each 10-minute epoch has a share pool. Miners submit nonces, the contract verifies on-chain. At flip: claim your pro-rata share of <b>50 ASH</b>.</span>
+    </div>
+    <div class="about-item">
+      <span class="label">Supply</span>
+      <span class="val"><b>21 million cap.</b> Halvings every 210 000 epochs (~4 years). No admin key. No upgrades. Frozen at deploy — code is law.</span>
+    </div>
+  </div>
+
+  <details id="config">
+    <summary>Advanced — network · rpc · contract</summary>
+    <div class="cfg">
+      <label>Network
+        <select id="net-select">
+          <option value="bittensor">Bittensor EVM (964)</option>
+          <option value="bittensor-test">Bittensor testnet (945)</option>
+          <option value="base">Base (8453)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+      <label>RPC URL <input id="rpc-input" placeholder="https://…" spellcheck="false"></label>
+      <label>Contract <input id="contract-input" placeholder="0x…" spellcheck="false"></label>
+    </div>
+    <div class="cfg" style="grid-template-columns:auto 1fr">
+      <button id="save-config" class="hotbtn">Apply</button>
+      <span></span>
+    </div>
+    <p id="hint" hidden>No contract address set. Paste the deployed ASH contract above.</p>
+  </details>
+
+  <div class="hero">
+    <div class="gaugebox">
+      <div id="gauge" role="img" aria-label="Epoch progress gauge">
+        <div class="gaugelabel">
+          <span class="eyebrow">Epoch</span>
+          <span id="epoch-num">—</span>
+          <span id="countdown"></span>
+        </div>
+      </div>
+    </div>
+    <div class="instruments">
+      <div class="inst"><span class="eyebrow">Pool this epoch</span>
+        <span class="big"><span id="pool-val">—</span> ASH</span>
+        <span class="sub">era <span id="era-val">—</span> · halving in <span id="halving-val">—</span> epochs</span></div>
+      <div class="inst"><span class="eyebrow">Difficulty</span>
+        <span class="big" id="target-val">—</span>
+        <span class="sub" id="prob-val"></span></div>
+      <div class="inst"><span class="eyebrow">Shares this epoch</span>
+        <span class="big" id="shares-val">—</span>
+        <div class="bar"><i id="shares-bar"></i></div>
+        <span class="sub" id="cap-note"></span></div>
+      <div class="inst"><span class="eyebrow">Total supply</span>
+        <span class="big mono" style="font-size:17px" id="supply-val">—</span>
+        <div class="bar"><i id="supply-bar"></i></div>
+        <span class="sub">21 000 000 hard cap · unfilled epochs mint nothing</span></div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <section class="panel">
+      <h2>Burn <span class="mono" id="hashrate">idle</span></h2>
+      <div class="panelbody">
+        <div class="mrow">
+          <button id="mine-btn" class="hotbtn">Start burning</button>
+          <button id="submit-btn" disabled>Submit 0 shares</button>
+          <label class="check"><input type="checkbox" id="autosub" checked> auto-submit</label>
+        </div>
+        <div class="statline"><span>shares in buffer</span><b id="found-count">0</b></div>
+        <div class="statline"><span></span><b id="est-share" style="color:var(--heat)"></b></div>
+        <p id="miner-note"></p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Ledger</h2>
+      <div class="panelbody">
+        <div class="statline"><span>balance</span><b id="bal-val">—</b></div>
+        <div class="statline"><span>my shares, this epoch</span><b id="myshares-val">—</b></div>
+        <div class="mrow">
+          <button id="scan-btn">Scan last 64 epochs</button>
+          <button id="claim-all" class="hotbtn" hidden>Claim</button>
+        </div>
+        <p id="claims-empty">Mine an epoch, let it end, then scan.</p>
+        <div id="claims-body"></div>
+      </div>
+    </section>
+  </div>
+
+  <div id="log" aria-live="polite"></div>
+
+  <footer>
+    <div class="footer-col">
+      <span class="label">Contract</span>
+      <span class="line mono">0xA0EadE44e10C433E253aADd073cdFEd6af97F43A</span>
+      <span class="line">Bittensor EVM · chainId 964 · frozen at deploy</span>
+    </div>
+    <div class="footer-col">
+      <span class="label">Mine from CLI</span>
+      <span class="line">Clone the repo, run <span class="mono">python3 ash.py burn --market local</span></span>
+      <span class="line">GPU rentals: <span class="mono">--market targon</span> or <span class="mono">--market lium</span></span>
+    </div>
+    <div class="footer-creed">no owner · no admin key · no upgrades · no utility · every unit is a receipt for destroyed energy</div>
+  </footer>
+</div>
+
+<script>/* ashlib.js — zero-dependency core for the ASH frontend.
+ * keccak-256 (BigInt lanes, ported 1:1 from the repo's verified python),
+ * minimal ABI encode/decode for exactly the calls ASH needs, JSON-RPC.
+ * Verified in frontend/test.js: keccak vs pycryptodome vectors, selectors
+ * and calldata byte-exact vs ethers' encoder. */
+(function (root) {
+  "use strict";
+
+  // ---------------------------------------------------------- keccak-256
+  const RC = [0x1n, 0x8082n, 0x800000000000808An, 0x8000000080008000n,
+    0x808Bn, 0x80000001n, 0x8000000080008081n, 0x8000000000008009n,
+    0x8An, 0x88n, 0x80008009n, 0x8000000An, 0x8000808Bn,
+    0x800000000000008Bn, 0x8000000000008089n, 0x8000000000008003n,
+    0x8000000000008002n, 0x8000000000000080n, 0x800An,
+    0x800000008000000An, 0x8000000080008081n, 0x8000000000008080n,
+    0x80000001n, 0x8000000080008008n];
+  const ROT = [0n,1n,62n,28n,27n,36n,44n,6n,55n,20n,3n,10n,43n,25n,39n,
+    41n,45n,15n,21n,8n,18n,2n,61n,56n,14n];
+  const M64 = (1n << 64n) - 1n;
+  const rol = (v, n) => n === 0n ? v : (((v << n) | (v >> (64n - n))) & M64);
+
+  function keccakF(st) {
+    for (let r = 0; r < 24; r++) {
+      const c = [0n, 0n, 0n, 0n, 0n];
+      for (let x = 0; x < 5; x++)
+        c[x] = st[x] ^ st[x+5] ^ st[x+10] ^ st[x+15] ^ st[x+20];
+      const d = [0n, 0n, 0n, 0n, 0n];
+      for (let x = 0; x < 5; x++)
+        d[x] = c[(x+4)%5] ^ rol(c[(x+1)%5], 1n);
+      for (let i = 0; i < 25; i++) st[i] ^= d[i%5];
+      const b = new Array(25).fill(0n);
+      for (let x = 0; x < 5; x++)
+        for (let y = 0; y < 5; y++)
+          b[y + 5*((2*x + 3*y) % 5)] = rol(st[x + 5*y], ROT[x + 5*y]);
+      for (let i = 0; i < 25; i++) {
+        const row = (i/5|0)*5;
+        st[i] = b[i] ^ ((~b[row + ((i%5)+1)%5]) & b[row + ((i%5)+2)%5] & M64);
+      }
+      st[0] ^= RC[r];
+    }
+    return st;
+  }
+
+  function keccak256(data) {                       // Uint8Array -> Uint8Array
+    const rate = 136;
+    let p;
+    if ((data.length + 1) % rate === 0) {
+      p = new Uint8Array(data.length + 1); p.set(data); p[data.length] = 0x81;
+    } else {
+      const padLen = rate - (data.length % rate);
+      p = new Uint8Array(data.length + padLen); p.set(data);
+      p[data.length] = 0x01; p[p.length - 1] |= 0x80;
+    }
+    let st = new Array(25).fill(0n);
+    for (let off = 0; off < p.length; off += rate) {
+      for (let i = 0; i < 17; i++) {
+        let lane = 0n;
+        for (let j = 7; j >= 0; j--)
+          lane = (lane << 8n) | BigInt(p[off + i*8 + j]);
+        st[i] ^= lane;
+      }
+      st = keccakF(st);
+    }
+    const out = new Uint8Array(32);
+    for (let i = 0; i < 4; i++) {
+      let lane = st[i];
+      for (let j = 0; j < 8; j++) { out[i*8 + j] = Number(lane & 0xFFn); lane >>= 8n; }
+    }
+    return out;
+  }
+
+  // ---------------------------------------------------------- bytes / hex
+  const hexToBytes = (h) => {
+    h = h.startsWith("0x") ? h.slice(2) : h;
+    const out = new Uint8Array(h.length / 2);
+    for (let i = 0; i < out.length; i++)
+      out[i] = parseInt(h.substr(i*2, 2), 16);
+    return out;
+  };
+  const bytesToHex = (b) =>
+    "0x" + Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
+  const bytesToBig = (b) => BigInt(bytesToHex(b));
+  const concat = (...arrs) => {
+    const out = new Uint8Array(arrs.reduce((n, a) => n + a.length, 0));
+    let o = 0; for (const a of arrs) { out.set(a, o); o += a.length; }
+    return out;
+  };
+  const be32 = (v) => {                            // BigInt -> 32-byte BE
+    const out = new Uint8Array(32);
+    let x = BigInt(v);
+    for (let i = 31; i >= 0; i--) { out[i] = Number(x & 0xFFn); x >>= 8n; }
+    return out;
+  };
+  const utf8 = (s) => new TextEncoder().encode(s);
+
+  // ------------------------------------------------------------- ABI codec
+  const selector = (sig) => bytesToHex(keccak256(utf8(sig))).slice(0, 10);
+  const W = (v) => BigInt(v).toString(16).padStart(64, "0");
+  const encAddr = (a) => a.toLowerCase().replace("0x", "").padStart(64, "0");
+  const encUintArray = (arr) =>
+    W(32) + W(arr.length) + arr.map(W).join("");
+  const word = (hex, i) => {                        // i-th 32-byte word
+    const s = (hex || "").replace("0x", "").substr(i * 64, 64);
+    return s.length === 64 ? BigInt("0x" + s) : 0n;
+  };
+  const wordHex = (hex, i) =>
+    "0x" + hex.replace("0x", "").substr(i * 64, 64);
+
+  // exactly the ASH surface the page uses
+  const calldata = {
+    frontier:            () => selector("frontier()"),
+    totalSupply:         () => selector("totalSupply()"),
+    genesis:             () => selector("genesis()"),
+    EPOCH_SECONDS:       () => selector("EPOCH_SECONDS()"),
+    CAP:                 () => selector("CAP()"),
+    TARGET_SHARES:       () => selector("TARGET_SHARES()"),
+    SHARE_CAP:           () => selector("SHARE_CAP()"),
+    currentEpoch:        () => selector("currentEpoch()"),
+    secondsToNextEpoch:  () => selector("secondsToNextEpoch()"),
+    poolOf:        (e)      => selector("poolOf(uint64)") + W(e),
+    totalShares:   (e)      => selector("totalShares(uint64)") + W(e),
+    balanceOf:     (a)      => selector("balanceOf(address)") + encAddr(a),
+    sharesOf:      (e, a)   => selector("sharesOf(uint64,address)") + W(e) + encAddr(a),
+    claimed:       (e, a)   => selector("claimed(uint64,address)") + W(e) + encAddr(a),
+    submitShares:  (nonces) => selector("submitShares(uint256[])") + encUintArray(nonces),
+    claim:         (e)      => selector("claim(uint64)") + W(e),
+    claimMany:     (es)     => selector("claimMany(uint64[])") + encUintArray(es),
+    roll:                () => selector("roll()"),
+  };
+
+  // the contract's share preimage: keccak(seed ‖ addr ‖ nonce)
+  const shareHash = (seedBytes, addrBytes, nonce) =>
+    bytesToBig(keccak256(concat(seedBytes, addrBytes, be32(nonce))));
+
+  // ------------------------------------------------------------- JSON-RPC
+  async function rpc(url, method, params) {
+    const r = await fetch(url, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message || JSON.stringify(j.error));
+    return j.result;
+  }
+  const ethCall = (url, to, data) =>
+    rpc(url, "eth_call", [{ to, data }, "latest"]);
+
+  async function ethCallBatch(url, to, datas) {     // batch, seq fallback
+    try {
+      const body = datas.map((d, i) => ({
+        jsonrpc: "2.0", id: i, method: "eth_call", params: [{ to, data: d }, "latest"],
+      }));
+      const r = await fetch(url, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json();
+      if (!Array.isArray(j)) throw new Error("no batch support");
+      const out = new Array(datas.length);
+      for (const item of j) {
+        if (item.error) throw new Error(item.error.message);
+        out[item.id] = item.result;
+      }
+      return out;
+    } catch (_) {
+      const out = [];
+      for (const d of datas) out.push(await ethCall(url, to, d));
+      return out;
+    }
+  }
+
+  const ASHLIB = { keccak256, hexToBytes, bytesToHex, bytesToBig, concat,
+    be32, utf8, selector, W, encAddr, encUintArray, word, wordHex,
+    calldata, shareHash, rpc, ethCall, ethCallBatch };
+  if (typeof module !== "undefined" && module.exports) module.exports = ASHLIB;
+  root.ASHLIB = ASHLIB;
+})(typeof self !== "undefined" ? self : globalThis);
+</script>
+<script>const WORKER_SRC = "/* ashlib.js — zero-dependency core for the ASH frontend.\n * keccak-256 (BigInt lanes, ported 1:1 from the repo's verified python),\n * minimal ABI encode/decode for exactly the calls ASH needs, JSON-RPC.\n * Verified in frontend/test.js: keccak vs pycryptodome vectors, selectors\n * and calldata byte-exact vs ethers' encoder. */\n(function (root) {\n  \"use strict\";\n\n  // ---------------------------------------------------------- keccak-256\n  const RC = [0x1n, 0x8082n, 0x800000000000808An, 0x8000000080008000n,\n    0x808Bn, 0x80000001n, 0x8000000080008081n, 0x8000000000008009n,\n    0x8An, 0x88n, 0x80008009n, 0x8000000An, 0x8000808Bn,\n    0x800000000000008Bn, 0x8000000000008089n, 0x8000000000008003n,\n    0x8000000000008002n, 0x8000000000000080n, 0x800An,\n    0x800000008000000An, 0x8000000080008081n, 0x8000000000008080n,\n    0x80000001n, 0x8000000080008008n];\n  const ROT = [0n,1n,62n,28n,27n,36n,44n,6n,55n,20n,3n,10n,43n,25n,39n,\n    41n,45n,15n,21n,8n,18n,2n,61n,56n,14n];\n  const M64 = (1n << 64n) - 1n;\n  const rol = (v, n) => n === 0n ? v : (((v << n) | (v >> (64n - n))) & M64);\n\n  function keccakF(st) {\n    for (let r = 0; r < 24; r++) {\n      const c = [0n, 0n, 0n, 0n, 0n];\n      for (let x = 0; x < 5; x++)\n        c[x] = st[x] ^ st[x+5] ^ st[x+10] ^ st[x+15] ^ st[x+20];\n      const d = [0n, 0n, 0n, 0n, 0n];\n      for (let x = 0; x < 5; x++)\n        d[x] = c[(x+4)%5] ^ rol(c[(x+1)%5], 1n);\n      for (let i = 0; i < 25; i++) st[i] ^= d[i%5];\n      const b = new Array(25).fill(0n);\n      for (let x = 0; x < 5; x++)\n        for (let y = 0; y < 5; y++)\n          b[y + 5*((2*x + 3*y) % 5)] = rol(st[x + 5*y], ROT[x + 5*y]);\n      for (let i = 0; i < 25; i++) {\n        const row = (i/5|0)*5;\n        st[i] = b[i] ^ ((~b[row + ((i%5)+1)%5]) & b[row + ((i%5)+2)%5] & M64);\n      }\n      st[0] ^= RC[r];\n    }\n    return st;\n  }\n\n  function keccak256(data) {                       // Uint8Array -> Uint8Array\n    const rate = 136;\n    let p;\n    if ((data.length + 1) % rate === 0) {\n      p = new Uint8Array(data.length + 1); p.set(data); p[data.length] = 0x81;\n    } else {\n      const padLen = rate - (data.length % rate);\n      p = new Uint8Array(data.length + padLen); p.set(data);\n      p[data.length] = 0x01; p[p.length - 1] |= 0x80;\n    }\n    let st = new Array(25).fill(0n);\n    for (let off = 0; off < p.length; off += rate) {\n      for (let i = 0; i < 17; i++) {\n        let lane = 0n;\n        for (let j = 7; j >= 0; j--)\n          lane = (lane << 8n) | BigInt(p[off + i*8 + j]);\n        st[i] ^= lane;\n      }\n      st = keccakF(st);\n    }\n    const out = new Uint8Array(32);\n    for (let i = 0; i < 4; i++) {\n      let lane = st[i];\n      for (let j = 0; j < 8; j++) { out[i*8 + j] = Number(lane & 0xFFn); lane >>= 8n; }\n    }\n    return out;\n  }\n\n  // ---------------------------------------------------------- bytes / hex\n  const hexToBytes = (h) => {\n    h = h.startsWith(\"0x\") ? h.slice(2) : h;\n    const out = new Uint8Array(h.length / 2);\n    for (let i = 0; i < out.length; i++)\n      out[i] = parseInt(h.substr(i*2, 2), 16);\n    return out;\n  };\n  const bytesToHex = (b) =>\n    \"0x\" + Array.from(b, x => x.toString(16).padStart(2, \"0\")).join(\"\");\n  const bytesToBig = (b) => BigInt(bytesToHex(b));\n  const concat = (...arrs) => {\n    const out = new Uint8Array(arrs.reduce((n, a) => n + a.length, 0));\n    let o = 0; for (const a of arrs) { out.set(a, o); o += a.length; }\n    return out;\n  };\n  const be32 = (v) => {                            // BigInt -> 32-byte BE\n    const out = new Uint8Array(32);\n    let x = BigInt(v);\n    for (let i = 31; i >= 0; i--) { out[i] = Number(x & 0xFFn); x >>= 8n; }\n    return out;\n  };\n  const utf8 = (s) => new TextEncoder().encode(s);\n\n  // ------------------------------------------------------------- ABI codec\n  const selector = (sig) => bytesToHex(keccak256(utf8(sig))).slice(0, 10);\n  const W = (v) => BigInt(v).toString(16).padStart(64, \"0\");\n  const encAddr = (a) => a.toLowerCase().replace(\"0x\", \"\").padStart(64, \"0\");\n  const encUintArray = (arr) =>\n    W(32) + W(arr.length) + arr.map(W).join(\"\");\n  const word = (hex, i) => {                        // i-th 32-byte word\n    const s = (hex || \"\").replace(\"0x\", \"\").substr(i * 64, 64);\n    return s.length === 64 ? BigInt(\"0x\" + s) : 0n;\n  };\n  const wordHex = (hex, i) =>\n    \"0x\" + hex.replace(\"0x\", \"\").substr(i * 64, 64);\n\n  // exactly the ASH surface the page uses\n  const calldata = {\n    frontier:            () => selector(\"frontier()\"),\n    totalSupply:         () => selector(\"totalSupply()\"),\n    genesis:             () => selector(\"genesis()\"),\n    EPOCH_SECONDS:       () => selector(\"EPOCH_SECONDS()\"),\n    CAP:                 () => selector(\"CAP()\"),\n    TARGET_SHARES:       () => selector(\"TARGET_SHARES()\"),\n    SHARE_CAP:           () => selector(\"SHARE_CAP()\"),\n    currentEpoch:        () => selector(\"currentEpoch()\"),\n    secondsToNextEpoch:  () => selector(\"secondsToNextEpoch()\"),\n    poolOf:        (e)      => selector(\"poolOf(uint64)\") + W(e),\n    totalShares:   (e)      => selector(\"totalShares(uint64)\") + W(e),\n    balanceOf:     (a)      => selector(\"balanceOf(address)\") + encAddr(a),\n    sharesOf:      (e, a)   => selector(\"sharesOf(uint64,address)\") + W(e) + encAddr(a),\n    claimed:       (e, a)   => selector(\"claimed(uint64,address)\") + W(e) + encAddr(a),\n    submitShares:  (nonces) => selector(\"submitShares(uint256[])\") + encUintArray(nonces),\n    claim:         (e)      => selector(\"claim(uint64)\") + W(e),\n    claimMany:     (es)     => selector(\"claimMany(uint64[])\") + encUintArray(es),\n    roll:                () => selector(\"roll()\"),\n  };\n\n  // the contract's share preimage: keccak(seed ‖ addr ‖ nonce)\n  const shareHash = (seedBytes, addrBytes, nonce) =>\n    bytesToBig(keccak256(concat(seedBytes, addrBytes, be32(nonce))));\n\n  // ------------------------------------------------------------- JSON-RPC\n  async function rpc(url, method, params) {\n    const r = await fetch(url, {\n      method: \"POST\", headers: { \"content-type\": \"application/json\" },\n      body: JSON.stringify({ jsonrpc: \"2.0\", id: 1, method, params }),\n    });\n    const j = await r.json();\n    if (j.error) throw new Error(j.error.message || JSON.stringify(j.error));\n    return j.result;\n  }\n  const ethCall = (url, to, data) =>\n    rpc(url, \"eth_call\", [{ to, data }, \"latest\"]);\n\n  async function ethCallBatch(url, to, datas) {     // batch, seq fallback\n    try {\n      const body = datas.map((d, i) => ({\n        jsonrpc: \"2.0\", id: i, method: \"eth_call\", params: [{ to, data: d }, \"latest\"],\n      }));\n      const r = await fetch(url, {\n        method: \"POST\", headers: { \"content-type\": \"application/json\" },\n        body: JSON.stringify(body),\n      });\n      const j = await r.json();\n      if (!Array.isArray(j)) throw new Error(\"no batch support\");\n      const out = new Array(datas.length);\n      for (const item of j) {\n        if (item.error) throw new Error(item.error.message);\n        out[item.id] = item.result;\n      }\n      return out;\n    } catch (_) {\n      const out = [];\n      for (const d of datas) out.push(await ethCall(url, to, d));\n      return out;\n    }\n  }\n\n  const ASHLIB = { keccak256, hexToBytes, bytesToHex, bytesToBig, concat,\n    be32, utf8, selector, W, encAddr, encUintArray, word, wordHex,\n    calldata, shareHash, rpc, ethCall, ethCallBatch };\n  if (typeof module !== \"undefined\" && module.exports) module.exports = ASHLIB;\n  root.ASHLIB = ASHLIB;\n})(typeof self !== \"undefined\" ? self : globalThis);\n\n/* worker.js — the in-page burner. Runs inside a Blob worker with ashlib\n * prepended. Grinds keccak(seed ‖ addr ‖ nonce) < target in small chunks\n * and posts found nonces. Demo-grade by design: real hashrate lives in\n * the pod/GPU miner; this exists so the page can burn for real. */\n\"use strict\";\nlet running = false, seed = null, addr = null, target = 0n, nonce = 1n;\nconst CHUNK = 400;\n\nself.onmessage = (ev) => {\n  const m = ev.data;\n  if (m.cmd === \"start\" || m.cmd === \"retune\") {\n    seed = ASHLIB.hexToBytes(m.seed);\n    addr = ASHLIB.hexToBytes(m.addr);\n    target = BigInt(m.target);\n    nonce = BigInt(m.startNonce || 1);\n    if (m.cmd === \"start\" && !running) { running = true; tick(); }\n  } else if (m.cmd === \"stop\") {\n    running = false;\n  }\n};\n\nfunction tick() {\n  if (!running) return;\n  const t0 = Date.now();\n  const found = [];\n  const pre = ASHLIB.concat(seed, addr);\n  for (let i = 0; i < CHUNK; i++) {\n    const h = ASHLIB.bytesToBig(\n      ASHLIB.keccak256(ASHLIB.concat(pre, ASHLIB.be32(nonce))));\n    if (h < target) found.push(nonce.toString());\n    nonce++;\n  }\n  postMessage({ found, tried: CHUNK, ms: Date.now() - t0 });\n  setTimeout(tick, 0);\n}\n";</script>
+<script>/* app.js — ASH furnace panel logic. No frameworks, no dependencies. */
+"use strict";
+const A = ASHLIB;
+
+// ------------------------------------------------------------ networks
+const NETS = {
+  "bittensor": { label: "Bittensor EVM", chainId: "0x3c4",
+    rpc: "https://lite.chain.opentensor.ai",
+    add: { chainName: "Bittensor EVM", nativeCurrency: { name: "TAO", symbol: "TAO", decimals: 18 },
+           rpcUrls: ["https://lite.chain.opentensor.ai"] } },
+  "bittensor-test": { label: "Bittensor testnet", chainId: "0x3b1",
+    rpc: "https://test.chain.opentensor.ai",
+    add: { chainName: "Bittensor EVM Testnet", nativeCurrency: { name: "TAO", symbol: "TAO", decimals: 18 },
+           rpcUrls: ["https://test.chain.opentensor.ai"] } },
+  "base": { label: "Base", chainId: "0x2105", rpc: "https://mainnet.base.org",
+    add: { chainName: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+           rpcUrls: ["https://mainnet.base.org"] } },
+  "custom": { label: "Custom", chainId: null, rpc: "", add: null },
+};
+
+// ------------------------------------------------------------ state
+const ASH_CONTRACT = "0xA0EadE44e10C433E253aADd073cdFEd6af97F43A";
+const S = {
+  net: "bittensor", rpc: NETS["bittensor"].rpc, contract: ASH_CONTRACT,
+  account: null, chainOk: false, watchAddr: null,
+  epoch: null, seed: null, target: null, epochShares: 0n,
+  supply: 0n, cap: 21000000n * 10n ** 18n, pool: 0n,
+  targetShares: 512n, shareCap: 8192n, epochSeconds: 600,
+  flipDeadline: 0, constantsLoaded: false,
+  mining: false, worker: null, hashrate: 0, tried: 0,
+  buf: [], submitting: false, autoSubmit: true,
+  claimRows: [], txPending: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const short = (a) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "—";
+const fmtAsh = (wei, dp = 4) => {
+  const s = (Number(wei) / 1e18);
+  return s.toLocaleString(undefined, { maximumFractionDigits: dp });
+};
+const bits = (t) => t ? (t.toString(2).length - 1) : 0;
+const now = () => Date.now();
+
+function log(msg, cls) {
+  const el = document.createElement("div");
+  el.className = "logline" + (cls ? " " + cls : "");
+  el.textContent = `${new Date().toTimeString().slice(0, 8)}  ${msg}`;
+  const box = $("log");
+  box.prepend(el);
+  while (box.children.length > 80) box.removeChild(box.lastChild);
+}
+
+// ------------------------------------------------------------ config
+function readConfig() {
+  const q = new URLSearchParams(location.search);
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("ash-cfg") || "{}"); } catch (_) {}
+  // URL params win, then localStorage, then baked-in defaults
+  S.net = q.get("net") || saved.net || S.net;
+  const preset = NETS[S.net] || NETS["custom"];
+  S.rpc = q.get("rpc") || saved.rpc || preset.rpc || NETS["bittensor"].rpc;
+  S.contract = (q.get("contract") || saved.contract || ASH_CONTRACT).trim();
+  const w = (q.get("watch") || "").trim();
+  S.watchAddr = w && w.startsWith("0x") ? w : null;
+}
+function writeConfig() {
+  try { localStorage.setItem("ash-cfg",
+    JSON.stringify({ net: S.net, rpc: S.rpc, contract: S.contract })); } catch (_) {}
+  const q = new URLSearchParams();
+  q.set("net", S.net);
+  if (S.rpc !== (NETS[S.net] || {}).rpc) q.set("rpc", S.rpc);
+  if (S.contract) q.set("contract", S.contract);
+  history.replaceState(null, "", "?" + q.toString());
+}
+function applyConfigUI() {
+  $("net-select").value = S.net;
+  $("rpc-input").value = S.rpc;
+  $("contract-input").value = S.contract;
+  $("contract-pill").textContent = S.contract ? short(S.contract) : "no contract";
+  const unset = !S.contract || !S.rpc;
+  if (unset) $("config").open = true;   // only force-open when actually misconfigured
+  $("hint").hidden = !unset;
+}
+
+// ------------------------------------------------------------ polling
+async function loadConstants() {
+  const c = A.calldata;
+  const [gen, es, cap, ts, sc] = await A.ethCallBatch(S.rpc, S.contract, [
+    c.genesis(), c.EPOCH_SECONDS(), c.CAP(), c.TARGET_SHARES(), c.SHARE_CAP()]);
+  S.epochSeconds = Number(A.word(es, 0));
+  S.cap = A.word(cap, 0);
+  S.targetShares = A.word(ts, 0);
+  S.shareCap = A.word(sc, 0);
+  S.constantsLoaded = true;
+  void gen;
+}
+
+async function poll() {
+  if (!S.contract || !S.rpc) return;
+  const c = A.calldata;
+  try {
+    if (!S.constantsLoaded) await loadConstants();
+    const fr = await A.ethCall(S.rpc, S.contract, c.frontier());
+    const e = A.word(fr, 0), seed = A.wordHex(fr, 1), target = A.word(fr, 2);
+    const [sup, tot, pool, sec] = await A.ethCallBatch(S.rpc, S.contract, [
+      c.totalSupply(), c.totalShares(e), c.poolOf(e), c.secondsToNextEpoch()]);
+    const flipped = S.epoch !== null && e !== S.epoch;
+    S.supply = A.word(sup, 0);
+    S.epochShares = A.word(tot, 0);
+    S.pool = A.word(pool, 0);
+    S.flipDeadline = now() + Number(A.word(sec, 0)) * 1000;
+    S.seed = seed; S.target = target;
+    if (flipped) onEpochFlip(e);
+    S.epoch = e;
+    $("rpc-dot").className = "dot ok";
+    render();
+  } catch (err) {
+    $("rpc-dot").className = "dot bad";
+    log(`rpc: ${err.message}`, "bad");
+  }
+}
+
+function onEpochFlip(e) {
+  log(`epoch ${e} — new seed, target 2^${bits(S.target)}`, "hot");
+  $("gauge").classList.add("flash");
+  setTimeout(() => $("gauge").classList.remove("flash"), 900);
+  if (S.mining) {
+    S.buf = [];                       // stale shares die at the flip
+    S.worker.postMessage({ cmd: "retune", seed: S.seed, addr: S.account,
+      target: "0x" + S.target.toString(16), startNonce: 1 });
+    log("miner retuned to new epoch; stale buffer dropped");
+  }
+  if (S.account) refreshLedgerHead();
+}
+
+// ------------------------------------------------------------ render
+function render() {
+  $("epoch-num").textContent = S.epoch === null ? "—" : S.epoch.toString();
+  $("pool-val").textContent = fmtAsh(S.pool, 2);
+  const era = S.epoch === null ? 0n : S.epoch / 210000n;
+  $("era-val").textContent = era.toString();
+  $("halving-val").textContent = S.epoch === null ? "—"
+    : ((era + 1n) * 210000n - S.epoch).toLocaleString();
+  $("target-val").textContent = S.target ? "2^" + bits(S.target) : "—";
+  $("prob-val").textContent = S.target
+    ? "1 share ≈ 2^" + (256 - bits(S.target) - 1) + " hashes" : "";
+  $("shares-val").textContent = `${S.epochShares} / ${S.targetShares}`;
+  $("shares-bar").style.width =
+    Math.min(100, Number(S.epochShares) / Number(S.shareCap) * 100) + "%";
+  $("cap-note").textContent = `epoch caps at ${S.shareCap}`;
+  $("supply-val").textContent = `${fmtAsh(S.supply, 2)} / ${fmtAsh(S.cap, 0)}`;
+  $("supply-bar").style.width =
+    (Number(S.supply) / Number(S.cap) * 100).toFixed(4) + "%";
+  renderMiner();
+}
+
+function tickGauge() {
+  const remain = Math.max(0, S.flipDeadline - now());
+  const frac = S.epoch === null ? 0
+    : 1 - remain / (S.epochSeconds * 1000);
+  const deg = Math.max(0, Math.min(360, frac * 360));
+  const heat = frac < .5
+    ? `var(--ember)` : frac < .85 ? `var(--heat)` : `var(--whitehot)`;
+  $("gauge").style.background =
+    `conic-gradient(${heat} ${deg}deg, #241e17 ${deg}deg)`;
+  const s = Math.floor(remain / 1000);
+  $("countdown").textContent = S.epoch === null ? "" :
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// ------------------------------------------------------------ wallet
+async function connect() {
+  if (!window.ethereum) { log("no wallet found — install MetaMask", "bad"); return; }
+  const [acct] = await window.ethereum.request({ method: "eth_requestAccounts" });
+  S.account = acct;
+  $("connect-btn").textContent = short(acct);
+  await ensureChain();
+  refreshLedgerHead();
+  log(`wallet ${short(acct)} connected`);
+}
+
+async function ensureChain() {
+  const net = NETS[S.net];
+  if (!net || !net.chainId || !window.ethereum) { S.chainOk = !!S.account; return; }
+  const cur = await window.ethereum.request({ method: "eth_chainId" });
+  if (cur === net.chainId) { S.chainOk = true; return; }
+  try {
+    await window.ethereum.request({ method: "wallet_switchEthereumChain",
+      params: [{ chainId: net.chainId }] });
+    S.chainOk = true;
+  } catch (err) {
+    if (err.code === 4902 && net.add) {
+      await window.ethereum.request({ method: "wallet_addEthereumChain",
+        params: [{ chainId: net.chainId, ...net.add }] });
+      S.chainOk = true;
+    } else { S.chainOk = false; log(`switch chain: ${err.message}`, "bad"); }
+  }
+}
+
+async function sendTx(data, label) {
+  if (!S.account) throw new Error("connect a wallet first");
+  await ensureChain();
+  S.txPending = true; render();
+  try {
+    const hash = await window.ethereum.request({ method: "eth_sendTransaction",
+      params: [{ from: S.account, to: S.contract, data }] });
+    log(`${label} → ${short(hash)}`, "hot");
+    return hash;
+  } finally { S.txPending = false; render(); }
+}
+
+// ------------------------------------------------------------ mining
+function makeWorker() {
+  const blob = new Blob([WORKER_SRC], { type: "text/javascript" });
+  return new Worker(URL.createObjectURL(blob));
+}
+
+function startMining() {
+  if (!S.account) { log("connect a wallet — shares are bound to your address", "bad"); return; }
+  if (!S.seed) { log("no frontier yet — check RPC/contract", "bad"); return; }
+  if (!S.worker) {
+    S.worker = makeWorker();
+    let emaT = 0, emaN = 0;
+    S.worker.onmessage = (ev) => {
+      const m = ev.data;
+      S.tried += m.tried;
+      emaT = emaT * .8 + m.ms * .2; emaN = emaN * .8 + m.tried * .2;
+      S.hashrate = emaT ? Math.round(emaN / (emaT / 1000)) : 0;
+      if (m.found.length) {
+        S.buf.push(...m.found.map(BigInt));
+        log(`+${m.found.length} share${m.found.length > 1 ? "s" : ""} found (buffer ${S.buf.length})`);
+      }
+      maybeAutoSubmit();
+      renderMiner();
+    };
+  }
+  S.mining = true; S.tried = 0; S.buf = [];
+  S.worker.postMessage({ cmd: "start", seed: S.seed, addr: S.account,
+    target: "0x" + S.target.toString(16), startNonce: 1 });
+  log(`burning against epoch ${S.epoch} at 2^${bits(S.target)}`);
+  renderMiner();
+}
+
+function stopMining() {
+  S.mining = false;
+  if (S.worker) S.worker.postMessage({ cmd: "stop" });
+  renderMiner();
+}
+
+function maybeAutoSubmit() {
+  if (!S.autoSubmit || S.submitting || S.txPending) return;
+  const nearFlip = S.flipDeadline - now() < 45000;
+  if (S.buf.length >= 16 || (nearFlip && S.buf.length > 0)) submitShares();
+}
+
+async function submitShares() {
+  if (!S.buf.length || S.submitting) return;
+  S.submitting = true;
+  const batch = S.buf.sort((a, b) => (a < b ? -1 : 1)).slice(0, 64);
+  try {
+    await sendTx(A.calldata.submitShares(batch), `submit ${batch.length} shares`);
+    S.buf = S.buf.filter((n) => !batch.includes(n));
+  } catch (err) {
+    const m = err.message || "";
+    if (m.includes("no work")) {
+      log("epoch flipped mid-submit — stale shares dropped", "bad");
+      S.buf = [];
+    } else if (m.includes("epoch full")) {
+      log("epoch full (SHARE_CAP) — standing down until next epoch", "bad");
+      S.buf = [];
+    } else log(`submit: ${m}`, "bad");
+  } finally { S.submitting = false; renderMiner(); }
+}
+
+function renderMiner() {
+  $("mine-btn").textContent = S.mining ? "Stop burning" : "Start burning";
+  $("mine-btn").classList.toggle("hotbtn", !S.mining);
+  $("hashrate").textContent = S.mining ? S.hashrate.toLocaleString() + " H/s" : "idle";
+  $("found-count").textContent = S.buf.length.toString();
+  const perShare = S.target && S.hashrate
+    ? Number((1n << 256n) / S.target) / S.hashrate : null;
+  $("est-share").textContent = !S.mining ? "" : perShare
+    ? (perShare > 1 ? `~${Math.round(perShare)}s / share at this rate` : "raining shares")
+    : "";
+  $("submit-btn").textContent = `Submit ${Math.min(S.buf.length, 64)} shares`;
+  $("submit-btn").disabled = !S.buf.length || S.submitting || S.txPending;
+  $("miner-note").textContent =
+    "In-page reference burner (~5 kH/s). Real hashrate: the pod/GPU miner in the repo.";
+}
+
+// ------------------------------------------------------------ ledger
+async function refreshLedgerHead() {
+  const addr = S.watchAddr || S.account;
+  if (!addr || !S.contract) return;
+  try {
+    const c = A.calldata;
+    const [bal, mine] = await A.ethCallBatch(S.rpc, S.contract, [
+      c.balanceOf(addr), c.sharesOf(S.epoch ?? 0n, addr)]);
+    $("bal-val").textContent = fmtAsh(A.word(bal, 0)) + " ASH";
+    $("myshares-val").textContent = A.word(mine, 0).toString();
+  } catch (_) {}
+}
+
+async function scanClaims() {
+  const addr = S.watchAddr || S.account;
+  if (!addr || S.epoch === null) return;
+  $("scan-btn").disabled = true;
+  $("scan-btn").textContent = "Scanning…";
+  const c = A.calldata;
+  const rows = [];
+  const from = S.epoch > 64n ? S.epoch - 64n : 0n;
+  try {
+    for (let e = S.epoch - 1n; e + 1n > from; e -= 1n) {
+      if (e < 0n) break;
+      const [sh, cl, tot, pool] = await A.ethCallBatch(S.rpc, S.contract, [
+        c.sharesOf(e, addr), c.claimed(e, addr),
+        c.totalShares(e), c.poolOf(e)]);
+      const mine = A.word(sh, 0);
+      if (mine > 0n && A.word(cl, 0) === 0n) {
+        const est = A.word(pool, 0) * mine / A.word(tot, 0);
+        rows.push({ e, mine, est });
+      }
+      if (e === 0n) break;
+    }
+  } catch (err) { log(`scan: ${err.message}`, "bad"); }
+  S.claimRows = rows;
+  const body = $("claims-body");
+  body.innerHTML = "";
+  for (const r of rows) {
+    const div = document.createElement("div");
+    div.className = "row";
+    div.innerHTML = `<span>epoch ${r.e}</span><span>${r.mine} shares</span>` +
+      `<span class="mono">${fmtAsh(r.est)} ASH</span>`;
+    body.appendChild(div);
+  }
+  $("claims-empty").hidden = rows.length > 0;
+  $("claim-all").hidden = rows.length === 0;
+  $("claim-all").textContent = `Claim ${rows.length} epoch${rows.length > 1 ? "s" : ""} (${fmtAsh(rows.reduce((a, r) => a + r.est, 0n))} ASH)`;
+  $("scan-btn").disabled = false;
+  $("scan-btn").textContent = "Scan last 64 epochs";
+}
+
+async function claimAll() {
+  if (!S.claimRows.length) return;
+  const es = S.claimRows.map((r) => r.e);
+  try {
+    await sendTx(A.calldata.claimMany(es), `claim ${es.length} epochs`);
+    setTimeout(() => { refreshLedgerHead(); scanClaims(); }, 4000);
+  } catch (err) { log(`claim: ${err.message}`, "bad"); }
+}
+
+// ------------------------------------------------------------ boot
+function boot() {
+  readConfig(); applyConfigUI();
+
+  $("net-select").onchange = (e) => {
+    S.net = e.target.value;
+    if (NETS[S.net] && NETS[S.net].rpc) S.rpc = NETS[S.net].rpc;
+    applyConfigUI();
+  };
+  $("save-config").onclick = () => {
+    S.rpc = $("rpc-input").value.trim();
+    S.contract = $("contract-input").value.trim();
+    S.constantsLoaded = false; S.epoch = null;
+    writeConfig(); applyConfigUI();
+    log(`panel pointed at ${short(S.contract)} via ${S.net}`);
+    poll();
+  };
+  $("connect-btn").onclick = connect;
+  $("mine-btn").onclick = () => (S.mining ? stopMining() : startMining());
+  $("submit-btn").onclick = submitShares;
+  $("autosub").onchange = (e) => { S.autoSubmit = e.target.checked; };
+  $("scan-btn").onclick = scanClaims;
+  $("claim-all").onclick = claimAll;
+
+  if (window.ethereum) {
+    window.ethereum.on?.("accountsChanged", (a) => {
+      S.account = a[0] || null;
+      $("connect-btn").textContent = S.account ? short(S.account) : "Connect wallet";
+      if (S.mining) { stopMining(); log("account changed — burner stopped"); }
+    });
+    window.ethereum.on?.("chainChanged", () => { S.chainOk = false; });
+  }
+
+  if (S.watchAddr) {
+    $("connect-btn").textContent = "👁 " + short(S.watchAddr);
+    $("connect-btn").disabled = true;
+    $("mine-btn").disabled = true;
+    $("submit-btn").disabled = true;
+    log("watch mode — monitoring " + short(S.watchAddr));
+    setInterval(refreshLedgerHead, 15000);
+    setInterval(() => { if (S.epoch !== null) scanClaims(); }, 60000);
+  } else {
+    log("ASH furnace live on Bittensor EVM — connect a wallet to mine");
+  }
+  poll();
+  setInterval(poll, 4000);
+  setInterval(tickGauge, 250);
+}
+document.addEventListener("DOMContentLoaded", boot);
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "canisters": {
+    "ash_frontend": {
+      "type": "assets",
+      "source": ["dist"],
+      "build": ["node build.js"]
+    }
+  },
+  "version": 1
+}
