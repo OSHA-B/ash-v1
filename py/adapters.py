@@ -48,12 +48,14 @@ class GPUMarket:
                      seconds: float) -> MiningSession: ...
 
 
-def _env(seed: bytes, addr: bytes, target: int, seconds: float) -> dict[str, str]:
+def _env(seed: bytes, addr: bytes, target: int, seconds: float,
+         start_nonce: int = 1) -> dict[str, str]:
     return {
         "ASH_SEED": "0x" + seed.hex(),
         "ASH_ADDR": "0x" + addr.hex(),
         "ASH_TARGET": hex(target),
         "ASH_SECONDS": str(int(seconds)),
+        "ASH_START_NONCE": str(start_nonce),
     }
 
 
@@ -74,11 +76,12 @@ def _parse_nonces(text: str, seen: set[int]) -> list[int]:
 # ============================================================ Mock (offline)
 class MockSession(MiningSession):
     """Mines locally in-process — used by live_loop --dry-run and tests."""
-    def __init__(self, seed, addr, target, hashes_per_poll=8000, price=0.30):
+    def __init__(self, seed, addr, target, hashes_per_poll=8000, price=0.30,
+                 start_nonce=1):
         from miner import mine_shares
         self._mine, self.seed, self.addr, self.target = mine_shares, seed, addr, target
         self.budget = hashes_per_poll
-        self.next_nonce = 1
+        self.next_nonce = start_nonce
         self.cost_usd_per_hour = price
         self.stopped = False
 
@@ -115,8 +118,9 @@ class MockMarket(GPUMarket):
     def release(self, pod_id: str) -> None:
         pass
 
-    def start_mining(self, seed, addr, target, seconds) -> MiningSession:
-        return MockSession(seed, addr, target, price=self._last_price)
+    def start_mining(self, seed, addr, target, seconds, start_nonce=1) -> MiningSession:
+        return MockSession(seed, addr, target, price=self._last_price,
+                          start_nonce=start_nonce)
 
 
 
@@ -186,11 +190,11 @@ class LiumMarket(GPUMarket):
             pass
         return Quote("lium", self.gpu, price, self.EST_HASHRATE.get(self.gpu))
 
-    def start_mining(self, seed, addr, target, seconds) -> MiningSession:
+    def start_mining(self, seed, addr, target, seconds, start_nonce=1) -> MiningSession:
         name = f"ash-{random.randrange(16**6):06x}"
         hours = max(1, int(seconds // 3600) + 1)
         src = POD_MINER.read_text()
-        envs = _env(seed, addr, target, seconds)
+        envs = _env(seed, addr, target, seconds, start_nonce)
         # build env flag list: -e K=V -e K=V …
         env_args: list[str] = []
         for k, v in envs.items():

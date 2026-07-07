@@ -11,7 +11,7 @@
 set -e
 
 export ASH_NETWORK=bittensor
-export ASH_RPC=https://rpc.blockmachine.io
+export ASH_RPC=https://lite.chain.opentensor.ai
 export ASH_CONTRACT=0xA0EadE44e10C433E253aADd073cdFEd6af97F43A
 
 LOGFILE="$HOME/ash-v1/logs/burn.log"

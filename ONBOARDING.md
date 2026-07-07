@@ -70,7 +70,7 @@ npm install
 ```bash
 cd ~/ash-v1
 export ASH_NETWORK=bittensor
-export ASH_RPC=https://rpc.blockmachine.io
+export ASH_RPC=https://lite.chain.opentensor.ai
 export ASH_CONTRACT=0xA0EadE44e10C433E253aADd073cdFEd6af97F43A
 
 python3.11 py/ash.py provision
@@ -126,7 +126,7 @@ After the operator sends TAO, poll until gas is confirmed:
 ```bash
 cd ~/ash-v1
 export ASH_NETWORK=bittensor
-export ASH_RPC=https://rpc.blockmachine.io
+export ASH_RPC=https://lite.chain.opentensor.ai
 export ASH_CONTRACT=0xA0EadE44e10C433E253aADd073cdFEd6af97F43A
 
 python3.11 py/ash.py status
@@ -143,7 +143,7 @@ Once gas is confirmed, run a single test epoch:
 ```bash
 cd ~/ash-v1
 export ASH_NETWORK=bittensor
-export ASH_RPC=https://rpc.blockmachine.io
+export ASH_RPC=https://lite.chain.opentensor.ai
 export ASH_CONTRACT=0xA0EadE44e10C433E253aADd073cdFEd6af97F43A
 
 python3.11 py/ash.py burn --market local --epochs 1
@@ -216,10 +216,8 @@ pip install cyscale --force-reinstall
 Then re-run `python3.11 py/ash.py provision`.
 
 ### RPC 429 errors
-The default RPC (`rpc.blockmachine.io`) is rate-limited under load. Fallbacks:
+The default RPC can lag or rate-limit under load. Fallback:
 ```bash
-export ASH_RPC=https://evm.chain.opentensor.ai
-# or
 export ASH_RPC=https://lite.chain.opentensor.ai
 ```
 

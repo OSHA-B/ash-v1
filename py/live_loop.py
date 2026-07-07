@@ -175,10 +175,15 @@ def run(chain, market, epochs: int | None, submit_margin=0.9):
     done = 0
     while epochs is None or done < epochs:
         e, seed, target = _rpc_call(chain.frontier)
+        # Start nonces from a time-based offset so restarts never collide
+        # with nonces already accepted this epoch (contract requires strictly
+        # increasing nonces per miner per epoch).
+        start_nonce = int(time.time()) * 10_000
         print(f"[epoch {e}] target=2^{target.bit_length()-1} — starting miner "
-              f"({market.__class__.__name__})")
+              f"({market.__class__.__name__}) nonce_start={start_nonce}")
         session = market.start_mining(seed, chain.addr, target,
-                                      seconds=EPOCH_SECONDS * submit_margin)
+                                      seconds=EPOCH_SECONDS * submit_margin,
+                                      start_nonce=start_nonce)
         buf: list[int] = []
         submitted = 0
         try:
