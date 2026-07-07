@@ -52,6 +52,25 @@ button.hotbtn{background:linear-gradient(180deg,#5a2c0b,#3d1e08);border-color:#7
 button.hotbtn:hover{border-color:var(--ember)}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--heat);outline-offset:1px}
 
+/* ------------------------------------------------ onboarding banner */
+.onboard{border:1px solid #3d2e15;border-radius:4px;background:linear-gradient(135deg,#1a1409 0%,#1d1813 100%);padding:18px 20px;margin:14px 0}
+.onboard-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+.onboard-head .title{font:800 14px/1 "Avenir Next Condensed","Arial Narrow",sans-serif;letter-spacing:.18em;text-transform:uppercase;color:var(--heat)}
+.onboard-head a.ghlink{font:var(--label);letter-spacing:.14em;text-transform:uppercase;color:var(--ashgrey);text-decoration:none;border:1px solid var(--seam);border-radius:3px;padding:6px 10px;font-size:11px}
+.onboard-head a.ghlink:hover{border-color:var(--heat);color:var(--heat)}
+.onboard-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ostep{background:var(--panel);border:1px solid var(--seam);border-radius:3px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.ostep .num{font-family:var(--mono);font-size:11px;color:var(--ember);letter-spacing:.08em}
+.ostep .desc{font-size:13px;color:var(--bone);line-height:1.45}
+.ostep .cmd{font-family:var(--mono);font-size:11px;color:var(--heat);background:var(--soot);border:1px solid var(--seam);border-radius:2px;padding:5px 8px;margin-top:2px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;user-select:all}
+.ostep .cmd:hover{border-color:var(--ember)}
+.ostep .cmd .copy-hint{font-size:10px;color:var(--faint);flex-shrink:0;user-select:none}
+.onboard-foot{margin-top:10px;font-size:12px;color:var(--faint)}
+.onboard-foot a{color:var(--ashgrey);text-decoration:none}
+.onboard-foot a:hover{color:var(--heat)}
+@media(max-width:680px){.onboard-steps{grid-template-columns:1fr 1fr}}
+@media(max-width:440px){.onboard-steps{grid-template-columns:1fr}}
+
 /* ------------------------------------------------ about banner */
 .about{border:1px solid var(--seam);border-radius:4px;background:var(--panel);padding:14px 16px;margin:14px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 20px}
 .about-item{display:flex;flex-direction:column;gap:4px}
@@ -157,6 +176,31 @@ footer{margin-top:28px;border-top:1px solid var(--seam);padding-top:18px;display
     <span class="pill live"><span id="rpc-dot" class="dot"></span>Bittensor EVM · <span id="contract-pill">connecting…</span></span>
     <button id="connect-btn">Connect wallet</button>
   </header>
+
+  <div class="onboard">
+    <div class="onboard-head">
+      <span class="title">⚡ Start mining in 3 steps</span>
+      <a class="ghlink" href="https://github.com/OSHA-B/ash-v1/blob/main/ONBOARDING.md" target="_blank" rel="noopener">Full onboarding guide ↗</a>
+    </div>
+    <div class="onboard-steps">
+      <div class="ostep">
+        <span class="num">STEP 1 — GET THE CODE</span>
+        <span class="desc">Clone the repo and install dependencies</span>
+        <span class="cmd" title="Click to copy" onclick="navigator.clipboard.writeText('git clone https://github.com/OSHA-B/ash-v1.git ~/ash-v1 && cd ~/ash-v1 && npm install')">git clone …/ash-v1 <span class="copy-hint">copy</span></span>
+      </div>
+      <div class="ostep">
+        <span class="num">STEP 2 — PROVISION &amp; FUND</span>
+        <span class="desc">Create wallets, get your addresses, send ~0.5 TAO for gas</span>
+        <span class="cmd" title="Click to copy" onclick="navigator.clipboard.writeText('python3.11 py/ash.py provision && python3.11 py/ash.py wallets')">ash.py provision &amp;&amp; wallets <span class="copy-hint">copy</span></span>
+      </div>
+      <div class="ostep">
+        <span class="num">STEP 3 — BURN</span>
+        <span class="desc">Mine your first epoch. Set up cron to run automatically 7×/day.</span>
+        <span class="cmd" title="Click to copy" onclick="navigator.clipboard.writeText('python3.11 py/ash.py burn --market local --epochs 1')">ash.py burn --market local <span class="copy-hint">copy</span></span>
+      </div>
+    </div>
+    <p class="onboard-foot">AI agent? <a href="https://raw.githubusercontent.com/OSHA-B/ash-v1/main/ONBOARDING.md" target="_blank" rel="noopener">Paste ONBOARDING.md into your agent</a> — it handles everything. Contract: <span class="mono">0xA0EadE44e10C433E253aADd073cdFEd6af97F43A</span> · chainId 964</p>
+  </div>
 
   <div class="about">
     <div class="about-item">
